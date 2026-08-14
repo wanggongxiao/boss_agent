@@ -1,0 +1,12 @@
+# 运行时依赖
+DrissionPage>=4.0.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+loguru>=0.7.2
+chromadb>=0.4.22
+openai>=1.30.0
+python-dotenv>=1.0.0
+
+# 可选：异步并发备选浏览器方案（按需安装）
+# playwright>=1.44.0
+# playwright-stealth>=1.0.6

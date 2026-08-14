@@ -1,0 +1,23 @@
+# 环境变量与敏感信息
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+
+# 数据与运行时产物
+data/browser_profile/
+data/chroma/
+data/sqlite/
+logs/
+*.log
+
+# 测试与工具缓存
+.pytest_cache/
+.ruff_cache/
+.coverage
