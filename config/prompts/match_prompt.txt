@@ -1,12 +1,12 @@
 请基于下面的简历和岗位 JD，输出匹配评估 JSON。
 
 要求返回的 JSON 结构如下：
-{
+{{
   "match_score": 0-100 的整数,
   "reasons": ["原因1", "原因2"],
   "should_apply": true 或 false,
   "custom_intro": "如建议沟通，给出个性化开场话术；否则为 null"
-}
+}}
 
 简历：
 {resume}
