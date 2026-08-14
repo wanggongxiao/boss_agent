@@ -130,7 +130,8 @@ def main() -> None:
         sys.exit(1)
 
     try:
-        retriever = JobRetriever(page)
+        human_loop = HumanLoop()
+        retriever = JobRetriever(page, human_loop=human_loop)
         jd_parser = JdParser(page)  # 结构化解析器可后续注入 LLM 版本
         matcher = JobMatcher(resume_text, vector_store=vector_store, llm=llm)
         communicator = Communicator(page, dry_run=not args.live)
@@ -143,7 +144,7 @@ def main() -> None:
             resume_text=resume_text,
             llm=llm,
             vector_store=vector_store,
-            human_loop=HumanLoop(),
+            human_loop=human_loop,
             guard=CommunicationGuard(repository),
             repository=repository,
             dry_run=not args.live,

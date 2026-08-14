@@ -5,6 +5,7 @@ DrissionPage 采用延迟导入，避免在尚未安装依赖时影响纯逻辑�
 
 from __future__ import annotations
 
+import socket
 from pathlib import Path
 
 from loguru import logger
@@ -30,14 +31,21 @@ class BrowserSession:
             raise RuntimeError("DrissionPage 未安装") from exc
 
         options = ChromiumOptions()
-        options.set_local_port()  # 自动分配本地调试端口
         options.set_user_data_path(str(self._user_data_dir))
+        options.set_local_port(self._find_free_port())
         if self._executable_path:
             options.set_browser_path(self._executable_path)
 
         # 关闭自动化特征明显的自动化提示（避免自动化信息条）
         options.set_argument("--disable-blink-features=AutomationControlled")
         return options
+
+    @staticmethod
+    def _find_free_port() -> int:
+        """向操作系统申请一个当前可用的本地调试端口。"""
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.bind(("127.0.0.1", 0))
+            return int(sock.getsockname()[1])
 
     def new_page(self):
         """创建新的 ChromiumPage 实例（延迟导入 DrissionPage）。"""

@@ -11,6 +11,7 @@ build/
 dist/
 
 # 数据与运行时产物
+data/resume/
 data/browser_profile/
 data/chroma/
 data/sqlite/
