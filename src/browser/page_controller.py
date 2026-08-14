@@ -31,7 +31,7 @@ class PageController:
         self._page = page
 
     @classmethod
-    def from_session(cls, session: BrowserSession) -> "PageController":
+    def from_session(cls, session: BrowserSession) -> PageController:
         return cls(session.new_page())
 
     def get(self, url: str, wait_s: float = 3.0) -> None:

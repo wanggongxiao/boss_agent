@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 
 def utc_now_iso() -> str:
     """返回 UTC 时间的 ISO8601 字符串（含时区）。"""
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def local_now_iso() -> str:
@@ -17,4 +17,4 @@ def local_now_iso() -> str:
 
 def utc_timestamp() -> int:
     """返回 Unix 秒级时间戳（UTC）。"""
-    return int(datetime.now(timezone.utc).timestamp())
+    return int(datetime.now(UTC).timestamp())

@@ -22,12 +22,27 @@ class Repository:
     # ===== jobs =====
     def upsert_job(self, job: Job) -> int:
         """插入或更新岗位，返回内部 job id。"""
-        row = self._conn.execute(
-            "SELECT id FROM jobs WHERE platform_job_id = ?",
-            (job.platform_job_id,),
-        ).fetchone()
+        row = self._find_job_row(job)
         if row is not None:
-            return int(row["id"])
+            job_id = int(row["id"])
+            self._conn.execute(
+                """
+                UPDATE jobs SET title = ?, company = ?, hr_id = ?, city = ?, salary = ?,
+                    jd_text = ?, jd_hash = ? WHERE id = ?
+                """,
+                (
+                    job.title,
+                    job.company,
+                    job.hr_id,
+                    job.city,
+                    job.salary,
+                    job.jd_text,
+                    job.jd_hash,
+                    job_id,
+                ),
+            )
+            self._conn.commit()
+            return job_id
 
         cur = self._conn.execute(
             """
@@ -36,7 +51,7 @@ class Repository:
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                job.platform_job_id,
+                job.platform_job_id or None,
                 job.title,
                 job.company,
                 job.hr_id,
@@ -49,6 +64,39 @@ class Repository:
         )
         self._conn.commit()
         return int(cur.lastrowid)
+
+    def _find_job_row(self, job: Job) -> sqlite3.Row | None:
+        if job.platform_job_id:
+            return self._conn.execute(
+                "SELECT id FROM jobs WHERE platform_job_id = ?", (job.platform_job_id,)
+            ).fetchone()
+        if job.jd_text:
+            row = self._conn.execute(
+                "SELECT id FROM jobs WHERE jd_hash = ? AND jd_hash != ''", (job.jd_hash,)
+            ).fetchone()
+            if row is not None:
+                return row
+        return self._conn.execute(
+            "SELECT id FROM jobs WHERE title = ? AND company = ? AND hr_id = ?",
+            (job.title, job.company, job.hr_id),
+        ).fetchone()
+
+    def is_job_processed(self, job: Job) -> bool:
+        """岗位是否已经产生过评估或沟通记录。"""
+        row = self._find_job_row(job)
+        if row is None:
+            return False
+        job_id = int(row["id"])
+        processed = self._conn.execute(
+            """
+            SELECT 1 FROM evaluations WHERE job_id = ?
+            UNION ALL
+            SELECT 1 FROM conversations WHERE job_id = ?
+            LIMIT 1
+            """,
+            (job_id, job_id),
+        ).fetchone()
+        return processed is not None
 
     # ===== evaluations =====
     def save_evaluation(
@@ -118,6 +166,55 @@ class Repository:
         )
         self._conn.commit()
 
+    # ===== send attempts / persistent guard =====
+    def record_send_attempt(self, target: str, success: bool, job_id: int | None = None) -> None:
+        self._conn.execute(
+            "INSERT INTO send_attempts (job_id, target, attempted_at, success) VALUES (?, ?, ?, ?)",
+            (job_id, target, int(time.time()), int(success)),
+        )
+        self._conn.commit()
+
+    def last_attempt_ts(self) -> float:
+        row = self._conn.execute("SELECT MAX(attempted_at) AS ts FROM send_attempts").fetchone()
+        return float(row["ts"] or 0)
+
+    def successful_sends_since(self, since_ts: int) -> int:
+        row = self._conn.execute(
+            "SELECT COUNT(*) AS count FROM send_attempts WHERE success = 1 AND attempted_at >= ?",
+            (since_ts,),
+        ).fetchone()
+        return int(row["count"])
+
+    def last_success_for_target(self, target: str) -> float | None:
+        row = self._conn.execute(
+            "SELECT MAX(attempted_at) AS ts FROM send_attempts WHERE target = ? AND success = 1",
+            (target,),
+        ).fetchone()
+        return float(row["ts"]) if row["ts"] is not None else None
+
+    def consecutive_send_failures(self) -> int:
+        rows = self._conn.execute(
+            "SELECT success FROM send_attempts ORDER BY id DESC LIMIT 5"
+        ).fetchall()
+        count = 0
+        for row in rows:
+            if bool(row["success"]):
+                break
+            count += 1
+        return count
+
+    def save_conversation_status(self, job_id: int, hr_id: str, status: str) -> None:
+        now = time_utils.utc_now_iso()
+        self._conn.execute(
+            """
+            INSERT INTO conversations
+                (job_id, hr_id, status, last_message_at, last_interact_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (job_id, hr_id, status, now, now),
+        )
+        self._conn.commit()
+
     # ===== runs =====
     def start_run(self) -> int:
         cur = self._conn.execute(
@@ -138,5 +235,11 @@ class Repository:
         self._conn.execute(
             "UPDATE runs SET risk_events_count = risk_events_count + 1 WHERE id = ?",
             (run_id,),
+        )
+        self._conn.commit()
+
+    def record_action(self, run_id: int) -> None:
+        self._conn.execute(
+            "UPDATE runs SET actions_count = actions_count + 1 WHERE id = ?", (run_id,)
         )
         self._conn.commit()

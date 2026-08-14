@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from config.settings import settings as get_settings
 
 _PROMPTS_DIR = get_settings().project_root / "config" / "prompts"

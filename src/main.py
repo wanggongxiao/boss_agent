@@ -27,6 +27,8 @@ from src.agent.human_loop import HumanLoop
 from src.agent.orchestration import AgentOrchestration
 from src.browser.page_controller import PageController
 from src.llm.client import DeepSeekClient
+from src.memory.repo.db import default_database
+from src.memory.repo.store import Repository
 from src.memory.vector_store import VectorStore
 from src.pipeline.communicator import Communicator
 from src.pipeline.jd_parser import JdParser
@@ -107,6 +109,8 @@ def main() -> None:
     # 可选组件
     llm = _build_llm()
     vector_store = _build_vector_store()
+    conn = default_database().initialize()
+    repository = Repository(conn)
 
     # 浏览器会话（DrissionPage 延迟导入）
     try:
@@ -116,8 +120,14 @@ def main() -> None:
         print("\n请先安装依赖：pip install -r requirements.txt\n", file=sys.stderr)
         sys.exit(1)
 
-    session = BrowserSession()
-    page = PageController.from_session(session)
+    try:
+        session = BrowserSession()
+        page = PageController.from_session(session)
+    except RuntimeError as exc:
+        conn.close()
+        logger.error(str(exc))
+        print("\n浏览器启动失败，请检查 Chrome 与 DrissionPage 配置。\n", file=sys.stderr)
+        sys.exit(1)
 
     try:
         retriever = JobRetriever(page)
@@ -134,13 +144,15 @@ def main() -> None:
             llm=llm,
             vector_store=vector_store,
             human_loop=HumanLoop(),
-            guard=CommunicationGuard(),
+            guard=CommunicationGuard(repository),
+            repository=repository,
             dry_run=not args.live,
         )
 
         orch.run_once(limit=args.limit)
     finally:
         page.close()
+        conn.close()
 
     logger.info("本轮执行结束")
 

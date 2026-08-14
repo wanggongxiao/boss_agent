@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 from pydantic import Field
@@ -14,7 +14,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
-class SafetyTier(str, Enum):
+class SafetyTier(StrEnum):
     """每日沟通限速分档。"""
 
     CONSERVATIVE = "conservative"  # 20/天，默认

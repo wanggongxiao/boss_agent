@@ -24,11 +24,8 @@ def migrate(conn: sqlite3.Connection) -> None:
     try:
         conn.execute("BEGIN")
         for version in range(current, SCHEMA_VERSION):
-            # MIGRATIONS 列表索引从 0 开始，对应版本 1；迁移第 v+1 个版本
-            index = version
-            if index >= len(MIGRATIONS):
-                break
-            conn.execute(MIGRATIONS[index])
+            for statement in MIGRATIONS[version]:
+                conn.execute(statement)
             conn.execute(f"PRAGMA user_version = {version + 1}")
             logger.info("已应用迁移版本 {}", version + 1)
         conn.commit()

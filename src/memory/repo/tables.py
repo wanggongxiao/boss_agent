@@ -1,16 +1,10 @@
-"""SQLite 表定义（DDL）。
-
-所有时间字段统一使用 UTC 的 ISO8601 字符串（`strftime('%Y-%m-%dT%H:%M:%fZ','now')`）
-或直接由应用层 `src.utils.time_utils` 生成后写入，避免依赖数据库本地时区。
-"""
+"""SQLite schema migrations grouped by schema version."""
 
 from __future__ import annotations
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
-# 建表语句按迁移顺序排列，迁移器按序执行（见 migrations.py）
-MIGRATIONS: list[str] = [
-    # --- v1: 初始表结构 ---
+_BASE_SCHEMA = [
     """
     CREATE TABLE IF NOT EXISTS jobs (
         id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -23,11 +17,9 @@ MIGRATIONS: list[str] = [
         jd_text         TEXT NOT NULL DEFAULT '',
         jd_hash         TEXT NOT NULL DEFAULT '',
         first_seen_at   TEXT NOT NULL DEFAULT ''
-    );
+    )
     """,
-    """
-    CREATE INDEX IF NOT EXISTS idx_jobs_jd_hash ON jobs (jd_hash);
-    """,
+    "CREATE INDEX IF NOT EXISTS idx_jobs_jd_hash ON jobs (jd_hash)",
     """
     CREATE TABLE IF NOT EXISTS evaluations (
         id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,11 +31,9 @@ MIGRATIONS: list[str] = [
         model_version TEXT NOT NULL DEFAULT '',
         created_at    TEXT NOT NULL DEFAULT '',
         FOREIGN KEY (job_id) REFERENCES jobs (id) ON DELETE CASCADE
-    );
+    )
     """,
-    """
-    CREATE INDEX IF NOT EXISTS idx_evaluations_job_id ON evaluations (job_id);
-    """,
+    "CREATE INDEX IF NOT EXISTS idx_evaluations_job_id ON evaluations (job_id)",
     """
     CREATE TABLE IF NOT EXISTS conversations (
         id               INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -54,11 +44,9 @@ MIGRATIONS: list[str] = [
         last_interact_at TEXT NOT NULL DEFAULT '',
         history_json     TEXT NOT NULL DEFAULT '[]',
         FOREIGN KEY (job_id) REFERENCES jobs (id) ON DELETE CASCADE
-    );
+    )
     """,
-    """
-    CREATE INDEX IF NOT EXISTS idx_conversations_hr_id ON conversations (hr_id);
-    """,
+    "CREATE INDEX IF NOT EXISTS idx_conversations_hr_id ON conversations (hr_id)",
     """
     CREATE TABLE IF NOT EXISTS blacklist (
         id       INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -66,11 +54,9 @@ MIGRATIONS: list[str] = [
         hr_id    TEXT NOT NULL DEFAULT '',
         reason   TEXT NOT NULL DEFAULT '',
         added_at TEXT NOT NULL DEFAULT ''
-    );
+    )
     """,
-    """
-    CREATE INDEX IF NOT EXISTS idx_blacklist_hr_id ON blacklist (hr_id);
-    """,
+    "CREATE INDEX IF NOT EXISTS idx_blacklist_hr_id ON blacklist (hr_id)",
     """
     CREATE TABLE IF NOT EXISTS runs (
         id                 INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -78,7 +64,7 @@ MIGRATIONS: list[str] = [
         ended_at           TEXT NOT NULL DEFAULT '',
         actions_count      INTEGER NOT NULL DEFAULT 0,
         risk_events_count  INTEGER NOT NULL DEFAULT 0
-    );
+    )
     """,
     """
     CREATE TABLE IF NOT EXISTS cooldown (
@@ -87,9 +73,29 @@ MIGRATIONS: list[str] = [
         target   TEXT NOT NULL DEFAULT '',
         until_ts INTEGER NOT NULL DEFAULT 0,
         reason   TEXT NOT NULL DEFAULT ''
-    );
+    )
     """,
+    "CREATE INDEX IF NOT EXISTS idx_cooldown_target ON cooldown (scope, target)",
+]
+
+_SEND_ATTEMPTS_SCHEMA = [
     """
-    CREATE INDEX IF NOT EXISTS idx_cooldown_target ON cooldown (scope, target);
+    CREATE TABLE IF NOT EXISTS send_attempts (
+        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+        job_id       INTEGER,
+        target       TEXT NOT NULL DEFAULT '',
+        attempted_at INTEGER NOT NULL DEFAULT 0,
+        success      INTEGER NOT NULL DEFAULT 0,
+        FOREIGN KEY (job_id) REFERENCES jobs (id) ON DELETE SET NULL
+    )
     """,
+    "CREATE INDEX IF NOT EXISTS idx_send_attempts_time ON send_attempts (attempted_at)",
+    "CREATE INDEX IF NOT EXISTS idx_send_attempts_target ON send_attempts (target, attempted_at)",
+]
+
+# v2 repeats the base DDL intentionally: early v1 databases only created the first
+# statement due to the old migration runner. CREATE IF NOT EXISTS repairs them safely.
+MIGRATIONS: list[list[str]] = [
+    _BASE_SCHEMA,
+    [*_BASE_SCHEMA, *_SEND_ATTEMPTS_SCHEMA],
 ]

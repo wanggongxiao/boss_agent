@@ -30,7 +30,7 @@ class State(Enum):
 
 # 允许的迁移（当前 -> 后继集合）
 _TRANSITIONS: dict[State, set[State]] = {
-    State.IDLE: {State.RETRIEVING, State.PARSING_JD, State.STOPPED, State.ERROR},
+    State.IDLE: {State.RETRIEVING, State.PARSING_JD, State.SKIPPED, State.STOPPED, State.ERROR},
     State.RETRIEVING: {State.PARSING_JD, State.IDLE, State.PAUSED, State.ERROR},
     State.PARSING_JD: {State.COARSE_MATCHING, State.PAUSED, State.ERROR},
     State.COARSE_MATCHING: {State.FINE_MATCHING, State.DECISION_READY, State.ERROR},
