@@ -53,12 +53,12 @@ class AgentOrchestration:
         self._dry_run = dry_run
         self._run_sm = StateMachine()
 
-    def run_once(self, limit: int = 0) -> None:
+    def run_once(self, limit: int = 0, keywords: list[str] | None = None) -> None:
         """执行一轮最小闭环。"""
         run_id = self._repository.start_run() if self._repository is not None else None
         try:
             self._run_sm.transition(State.RETRIEVING)
-            jobs = self._retriever.retrieve()
+            jobs = self._retriever.retrieve(keywords=keywords)
             logger.info("本轮共检索到 {} 个岗位", len(jobs))
             if limit > 0:
                 jobs = jobs[:limit]

@@ -24,6 +24,6 @@ SELECTORS = {
     "chat_input": ".chat-input",
     "chat_send": ".chat-send",
     # 搜索输入框 / 筛选
-    "search_input": ".search-input",
+    "search_input": ".search-input-box .input",
     "search_button": ".search-btn",
 }

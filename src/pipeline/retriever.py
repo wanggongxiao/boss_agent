@@ -32,8 +32,8 @@ class JobRetriever:
         self._human_loop = human_loop or HumanLoop()
         self._max_risk_retries = max(1, max_risk_retries)
 
-    def retrieve(self) -> list[Job]:
-        """打开检索页并抓取当前页岗位列表。"""
+    def retrieve(self, keywords: list[str] | None = None) -> list[Job]:
+        """打开检索页，按关键词搜索并抓取岗位列表。"""
         self._page.get(SEARCH_URL)
 
         cleared, handled_risk = self._wait_until_risk_cleared()
@@ -49,7 +49,47 @@ class JobRetriever:
                 logger.warning("重新进入搜索页后再次触发风控，停止本轮检索")
                 return []
 
-        return self._parse_cards()
+        normalized = list(dict.fromkeys(k.strip() for k in keywords or [] if k.strip()))
+        if not normalized:
+            return self._parse_cards()
+
+        jobs: list[Job] = []
+        seen: set[str] = set()
+        for keyword in normalized:
+            if not self._search(keyword):
+                continue
+            for job in self._parse_cards():
+                key = job.platform_job_id or job.detail_url or f"{job.title}|{job.company}"
+                if key not in seen:
+                    seen.add(key)
+                    jobs.append(job)
+
+        logger.info("{} 个关键词共检索到 {} 个去重岗位", len(normalized), len(jobs))
+        return jobs
+
+    def _search(self, keyword: str) -> bool:
+        """在当前职位页执行一次关键词搜索。"""
+        logger.info("搜索岗位关键词：{}", keyword)
+        previous_url = self._page.url
+        try:
+            self._page.input(SELECTORS["search_input"], keyword)
+            self._page.click(SELECTORS["search_button"])
+        except Exception as exc:  # pragma: no cover - 页面改版诊断
+            logger.error("执行岗位搜索失败：{}", exc)
+            return False
+
+        if not self._page.wait_for_url_change(previous_url):
+            logger.debug("搜索后 URL 未变化，继续按页面结果检测：{}", self._page.url)
+
+        cleared, handled_risk = self._wait_until_risk_cleared()
+        if not cleared:
+            logger.warning("搜索关键词 {} 后风控未解除", keyword)
+            return False
+        if handled_risk:
+            logger.info("验证解除后重新提交关键词：{}", keyword)
+            self._page.input(SELECTORS["search_input"], keyword)
+            self._page.click(SELECTORS["search_button"])
+        return True
 
     def _wait_until_risk_cleared(self) -> tuple[bool, bool]:
         """检测到验证时暂停，等待人工处理并有限次数复检。"""

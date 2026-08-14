@@ -67,7 +67,7 @@ class PageController:
     def elements(self, locator: str, by: str = "css") -> list:
         """获取匹配的元素列表。"""
         if by == "css":
-            return self._page.eles(locator)
+            return self._page.eles(f"css:{locator}")
         if by == "xpath":
             return self._page.eles(f"xpath:{locator}")
         raise ValueError(f"不支持的定位方式: {by}")
@@ -85,13 +85,24 @@ class PageController:
                 return []
             time.sleep(poll_s)
 
+    def wait_for_url_change(
+        self, previous_url: str, timeout_s: float = 8.0, poll_s: float = 0.2
+    ) -> bool:
+        """等待页面 URL 变化，超时返回 False。"""
+        deadline = time.monotonic() + timeout_s
+        while time.monotonic() < deadline:
+            if self.url != previous_url:
+                return True
+            time.sleep(poll_s)
+        return self.url != previous_url
+
     def child_text(self, element, locator: str, by: str = "css") -> str:
         """获取元素内部匹配子元素的文本。
 
         :param element: DrissionPage 元素对象
         """
         if by == "css":
-            child = element.ele(locator)
+            child = element.ele(f"css:{locator}")
         elif by == "xpath":
             child = element.ele(f"xpath:{locator}")
         else:
@@ -103,7 +114,7 @@ class PageController:
     def child_attribute(self, element, locator: str, name: str, by: str = "css") -> str:
         """读取元素内部子元素的属性，缺失时返回空字符串。"""
         if by == "css":
-            child = element.ele(locator)
+            child = element.ele(f"css:{locator}")
         elif by == "xpath":
             child = element.ele(f"xpath:{locator}")
         else:
@@ -140,7 +151,7 @@ class PageController:
 
     def _find(self, locator: str, by: str):
         if by == "css":
-            return self._page.ele(locator)
+            return self._page.ele(f"css:{locator}")
         if by == "xpath":
             return self._page.ele(f"xpath:{locator}")
         if by == "text":

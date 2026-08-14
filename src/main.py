@@ -78,6 +78,12 @@ def build_args() -> argparse.Namespace:
         help="简历纯文本文件路径",
     )
     parser.add_argument(
+        "--keyword",
+        action="append",
+        default=[],
+        help="岗位搜索关键词，可重复传入多个",
+    )
+    parser.add_argument(
         "--limit",
         type=int,
         default=0,
@@ -150,7 +156,7 @@ def main() -> None:
             dry_run=not args.live,
         )
 
-        orch.run_once(limit=args.limit)
+        orch.run_once(limit=args.limit, keywords=args.keyword)
     finally:
         page.close()
         conn.close()

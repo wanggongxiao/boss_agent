@@ -4,6 +4,7 @@ from unittest.mock import Mock
 
 from config.selectors import SELECTORS
 from src.browser.risk_monitor import RiskEvent
+from src.pipeline.models import Job
 from src.pipeline.retriever import JobRetriever
 
 
@@ -70,3 +71,37 @@ def test_parse_current_job_card_dom_and_derive_job_id():
     assert jobs[0].platform_job_id == "abc123"
     assert jobs[0].detail_url == "https://www.zhipin.com/job_detail/abc123.html"
     assert jobs[0].company == "示例公司"
+
+
+def test_search_inputs_keyword_and_clicks_button():
+    page = Mock()
+    page.url = "https://www.zhipin.com/web/geek/jobs"
+    page.wait_for_url_change.return_value = True
+    retriever = JobRetriever(page)
+    retriever._risk_monitor = Mock()
+    retriever._risk_monitor.detect.return_value = None
+
+    assert retriever._search("C++开发工程师")
+
+    page.input.assert_called_once_with(SELECTORS["search_input"], "C++开发工程师")
+    page.click.assert_called_once_with(SELECTORS["search_button"])
+
+
+def test_multiple_keywords_are_deduplicated_by_job_id():
+    page = Mock()
+    retriever = JobRetriever(page)
+    retriever._risk_monitor = Mock()
+    retriever._risk_monitor.detect.return_value = None
+    retriever._search = Mock(return_value=True)
+    duplicate = Job(title="机器人算法", platform_job_id="same")
+    retriever._parse_cards = Mock(
+        side_effect=[
+            [duplicate, Job(title="C++", platform_job_id="cpp")],
+            [duplicate, Job(title="控制算法", platform_job_id="control")],
+        ]
+    )
+
+    jobs = retriever.retrieve(["机器人", "机器人", "控制算法"])
+
+    assert [job.platform_job_id for job in jobs] == ["same", "cpp", "control"]
+    assert retriever._search.call_count == 2

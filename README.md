@@ -70,6 +70,19 @@ python scripts\init_db.py
 python -m src.main --resume data\resume\resume.txt
 ```
 
+按关键词搜索岗位（`--keyword` 可重复传入）：
+
+```powershell
+python -m src.main --keyword "C++开发工程师" --limit 10
+
+python -m src.main `
+  --keyword "机器人算法工程师" `
+  --keyword "运动控制算法工程师" `
+  --limit 10
+```
+
+多个关键词的结果会按岗位 ID 自动去重；未传 `--keyword` 时继续使用页面默认推荐岗位。
+
 干跑会真实打开浏览器、检索岗位、解析 JD、调用 LLM 打分并预览话术，但 **不会发送** 任何消息。
 
 ### 2. 真实发送（会逐条人工确认）
