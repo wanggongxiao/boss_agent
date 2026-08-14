@@ -18,7 +18,9 @@ class HumanLoop:
         """
         print("\n" + "=" * 60)
         print(f"岗位：{title}")
-        print(f"话术：{intro}")
+        print(f"建议话术：{intro}")
+        print("提示：BOSS 网页会在点击“立即沟通”时发送账号预设招呼语，")
+        print("      当前版本不会自动追加建议话术，以避免连续发送两条消息。")
         print("=" * 60)
         answer = input("是否发送？(y=发送 / n=跳过 / q=退出) [n]：").strip().lower()
         if answer == "q":

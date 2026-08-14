@@ -1,6 +1,9 @@
-"""沟通动作：向岗位发起首次沟通。
+"""沟通动作：通过 BOSS 网页向岗位发起首次沟通。
 
 默认 dry-run（不真正发送）；发送前必须人工确认。
+
+BOSS 当前网页在点击“立即沟通”时会自动发送账号配置的预设招呼语，
+因此这里不再向聊天框追加第二条自定义消息，避免连续重复发送。
 """
 
 from __future__ import annotations
@@ -29,10 +32,13 @@ class Communicator:
             return False
 
         try:
+            previous_url = self._page.url
             self._page.click(SELECTORS["chat_button"])
-            self._page.input(SELECTORS["chat_input"], intro)
-            self._page.click(SELECTORS["chat_send"])
-            logger.info("已发送开场话术")
+            self._page.wait_for_url_change(previous_url, timeout_s=12.0)
+            if "/web/geek/chat" not in self._page.url:
+                logger.error("点击立即沟通后未进入聊天页，当前 URL={}", self._page.url)
+                return False
+            logger.info("已发起沟通；BOSS 已发送账号预设招呼语，自定义建议话术未追加")
             return True
         except Exception as exc:  # pragma: no cover - 选择器需按页面校准
             logger.error("发送开场话术失败：{}", exc)
