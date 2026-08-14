@@ -12,17 +12,24 @@ def _risk_event() -> RiskEvent:
 
 def test_risk_can_resume_after_manual_handling():
     page = Mock()
-    page.elements.return_value = []
+    page.wait_for_elements.return_value = []
+    page.snapshot.return_value = Mock(
+        url="https://www.zhipin.com/web/geek/job",
+        title="岗位搜索",
+        screenshot_path="snapshot.png",
+        text_snippet="",
+    )
     human_loop = Mock()
     retriever = JobRetriever(page, human_loop=human_loop)
     retriever._risk_monitor = Mock()
-    retriever._risk_monitor.detect.side_effect = [_risk_event(), None]
+    retriever._risk_monitor.detect.side_effect = [_risk_event(), None, None]
 
     jobs = retriever.retrieve()
 
     assert jobs == []
     human_loop.wait_for_resume.assert_called_once_with()
-    page.elements.assert_called_once()
+    assert page.get.call_count == 2
+    page.wait_for_elements.assert_called_once()
 
 
 def test_risk_stops_after_retry_limit():
@@ -36,4 +43,4 @@ def test_risk_stops_after_retry_limit():
 
     assert jobs == []
     assert human_loop.wait_for_resume.call_count == 2
-    page.elements.assert_not_called()
+    page.wait_for_elements.assert_not_called()

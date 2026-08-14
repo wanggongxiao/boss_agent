@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -70,6 +71,19 @@ class PageController:
         if by == "xpath":
             return self._page.eles(f"xpath:{locator}")
         raise ValueError(f"不支持的定位方式: {by}")
+
+    def wait_for_elements(
+        self, locator: str, by: str = "css", timeout_s: float = 10.0, poll_s: float = 0.5
+    ) -> list:
+        """等待至少一个元素出现，超时后返回空列表。"""
+        deadline = time.monotonic() + timeout_s
+        while True:
+            elements = self.elements(locator, by)
+            if elements:
+                return elements
+            if time.monotonic() >= deadline:
+                return []
+            time.sleep(poll_s)
 
     def child_text(self, element, locator: str, by: str = "css") -> str:
         """获取元素内部匹配子元素的文本。

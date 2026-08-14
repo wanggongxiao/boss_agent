@@ -10,6 +10,7 @@ from urllib.parse import urljoin
 from loguru import logger
 
 from config.selectors import SEARCH_URL, SELECTORS
+from config.settings import settings as get_settings
 from src.agent.human_loop import HumanLoop
 from src.browser.page_controller import PageController
 from src.browser.risk_monitor import RiskMonitor
@@ -34,17 +35,26 @@ class JobRetriever:
         """打开检索页并抓取当前页岗位列表。"""
         self._page.get(SEARCH_URL)
 
-        if not self._wait_until_risk_cleared():
+        cleared, handled_risk = self._wait_until_risk_cleared()
+        if not cleared:
             logger.warning("人工处理后风控仍未解除，停止检索并返回空列表")
             return []
 
+        if handled_risk:
+            logger.info("验证解除后重新打开岗位搜索页")
+            self._page.get(SEARCH_URL)
+            cleared, _ = self._wait_until_risk_cleared()
+            if not cleared:
+                logger.warning("重新进入搜索页后再次触发风控，停止本轮检索")
+                return []
+
         return self._parse_cards()
 
-    def _wait_until_risk_cleared(self) -> bool:
+    def _wait_until_risk_cleared(self) -> tuple[bool, bool]:
         """检测到验证时暂停，等待人工处理并有限次数复检。"""
         event = self._risk_monitor.detect()
         if event is None:
-            return True
+            return True, False
 
         for attempt in range(1, self._max_risk_retries + 1):
             logger.warning(
@@ -57,14 +67,18 @@ class JobRetriever:
             event = self._risk_monitor.detect()
             if event is None:
                 logger.info("风控验证已解除，恢复岗位检索")
-                return True
+                return True, True
 
-        return False
+        return False, True
 
     def _parse_cards(self) -> list[Job]:
         """解析岗位卡片，逐卡片提取标题/公司/城市/薪资。"""
         jobs: list[Job] = []
-        cards = self._page.elements(SELECTORS["job_card"])
+        cards = self._page.wait_for_elements(SELECTORS["job_card"], timeout_s=12.0)
+
+        if not cards:
+            self._record_empty_result_diagnostics()
+            return []
 
         for card in cards:
             detail_href = self._page.child_attribute(card, SELECTORS["job_link"], "href")
@@ -83,3 +97,18 @@ class JobRetriever:
 
         logger.info("检索到岗位卡片 {} 条", len(jobs))
         return jobs
+
+    def _record_empty_result_diagnostics(self) -> None:
+        """岗位为零时保存现场，区分空结果与选择器失效。"""
+        try:
+            output_dir = get_settings().project_root / "data" / "diagnostics"
+            snapshot = self._page.snapshot(output_dir)
+            logger.warning(
+                "未找到岗位卡片 | url={} | title={} | screenshot={}",
+                snapshot.url,
+                snapshot.title,
+                snapshot.screenshot_path,
+            )
+            logger.debug("页面文本片段：{}", snapshot.text_snippet[:500])
+        except Exception as exc:  # pragma: no cover - 诊断失败不影响安全退出
+            logger.warning("保存零结果诊断现场失败：{}", exc)
