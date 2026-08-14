@@ -50,6 +50,7 @@ class Settings(BaseSettings):
     # ===== 存储 =====
     db_path: str = "./data/sqlite/boss.db"
     chroma_dir: str = "./data/chroma"
+    match_coarse_threshold: float = Field(default=0.12, ge=-1.0, le=1.0)
 
     # ===== 通知 =====
     notify_kind: str = "none"

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from loguru import logger
 
+from config.settings import settings as get_settings
 from src.llm.client import DeepSeekClient
 from src.llm.prompt_loader import load_prompt
 from src.llm.schemas import JobEvaluation
@@ -23,12 +24,16 @@ class JobMatcher:
         resume_text: str,
         vector_store: VectorStore | None = None,
         llm: DeepSeekClient | None = None,
-        coarse_threshold: float = 0.5,
+        coarse_threshold: float | None = None,
     ):
         self._resume_text = resume_text
         self._vector_store = vector_store
         self._llm = llm
-        self._coarse_threshold = coarse_threshold
+        self._coarse_threshold = (
+            get_settings().match_coarse_threshold
+            if coarse_threshold is None
+            else coarse_threshold
+        )
 
     def coarse_pass(self, job: Job) -> bool:
         """RAG 粗筛：JD 与简历向量是否足够相似。
@@ -44,7 +49,16 @@ class JobMatcher:
             return True
 
         best = max(h.score for h in hits)
-        return best >= self._coarse_threshold
+        passed = best >= self._coarse_threshold
+        logger.info(
+            "RAG 粗筛：{} @ {} | best={:.3f} | threshold={:.3f} | passed={}",
+            job.title,
+            job.company,
+            best,
+            self._coarse_threshold,
+            passed,
+        )
+        return passed
 
     def evaluate(self, job: Job) -> JobEvaluation | None:
         """LLM 精判；未配置 LLM 时返回 None。"""

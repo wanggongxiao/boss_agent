@@ -55,6 +55,15 @@ class VectorStore:
         self._collection.upsert(ids=ids, documents=docs)
         logger.info("已写入 {} 条简历切片", len(chunks))
 
+    def replace_chunks(self, chunks: list[dict]) -> None:
+        """清空旧简历切片后写入新索引，避免过期切片残留。"""
+        if not self._ensure_client():
+            return
+        existing = self._collection.get(include=[]).get("ids", [])
+        if existing:
+            self._collection.delete(ids=existing)
+        self.upsert_chunks(chunks)
+
     def query(self, text: str, top_k: int = 5) -> list[VectorHit]:
         """查询与 text 语义最接近的简历切片。"""
         if not self._ensure_client():

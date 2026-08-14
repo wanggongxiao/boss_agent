@@ -17,7 +17,7 @@ def _split_paragraphs(text: str) -> list[str]:
     parts = [p.strip() for p in text.split("\n\n") if p.strip()]
     if not parts:
         parts = [p.strip() for p in text.split("\n") if p.strip()]
-    return [p for p in parts if len(p) >= 8]
+    return [p for p in parts if len(p) >= 8 and any(char.isalnum() for char in p)]
 
 
 class ResumeIndexer:
@@ -33,7 +33,7 @@ class ResumeIndexer:
             {"id": f"chunk_{i}", "text": chunk}
             for i, chunk in enumerate(chunks)
         ]
-        self._store.upsert_chunks(payload)
+        self._store.replace_chunks(payload)
         logger.info("简历切片完成，共 {} 段", len(payload))
         return len(payload)
 
