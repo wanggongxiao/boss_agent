@@ -5,7 +5,8 @@
 
 from __future__ import annotations
 
-from urllib.parse import urljoin
+from pathlib import PurePosixPath
+from urllib.parse import urljoin, urlparse
 
 from loguru import logger
 
@@ -83,14 +84,18 @@ class JobRetriever:
         for card in cards:
             detail_href = self._page.child_attribute(card, SELECTORS["job_link"], "href")
             detail_href = detail_href or self._page.element_attribute(card, "href")
+            detail_url = urljoin(SEARCH_URL, detail_href) if detail_href else ""
+            platform_job_id = self._page.element_attribute(card, "data-jobid") or ""
+            if not platform_job_id and detail_url:
+                platform_job_id = PurePosixPath(urlparse(detail_url).path).stem
             job = Job(
                 title=self._page.child_text(card, SELECTORS["job_title"]),
                 company=self._page.child_text(card, SELECTORS["job_company"]),
                 city=self._page.child_text(card, SELECTORS["job_city"]),
                 salary=self._page.child_text(card, SELECTORS["job_salary"]),
-                platform_job_id=self._page.element_attribute(card, "data-jobid") or "",
+                platform_job_id=platform_job_id,
                 hr_id=self._page.element_attribute(card, "data-hrid") or "",
-                detail_url=urljoin(SEARCH_URL, detail_href) if detail_href else "",
+                detail_url=detail_url,
             )
             if job.title or job.company:
                 jobs.append(job)
