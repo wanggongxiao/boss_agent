@@ -29,7 +29,12 @@ class JdParser:
 
     def parse(self, job: Job) -> ParsedJd:
         """抓取 job 的详情页 JD 文本到 job.jd_text，并返回结构化结果。"""
-        job.jd_text = self._fetch_jd_text()
+        if job.detail_url:
+            self._page.get(job.detail_url)
+            job.jd_text = self._fetch_jd_text()
+        else:
+            logger.warning("岗位缺少详情链接，无法保证 JD 对应关系：{} @ {}", job.title, job.company)
+            job.jd_text = ""
 
         if self._structured_parser is None:
             logger.debug("未注入结构化解析器，返回空 ParsedJd")

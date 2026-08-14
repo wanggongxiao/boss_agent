@@ -15,6 +15,7 @@ class Job:
     salary: str = ""
     hr_id: str = ""
     platform_job_id: str = ""
+    detail_url: str = ""
     jd_text: str = ""
 
     @property

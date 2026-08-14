@@ -25,6 +25,7 @@ from config.settings import settings as get_settings
 from src.agent.guard import CommunicationGuard
 from src.agent.human_loop import HumanLoop
 from src.agent.orchestration import AgentOrchestration
+from src.browser.page_controller import PageController
 from src.llm.client import DeepSeekClient
 from src.memory.vector_store import VectorStore
 from src.pipeline.communicator import Communicator
@@ -116,7 +117,7 @@ def main() -> None:
         sys.exit(1)
 
     session = BrowserSession()
-    page = session.new_page()
+    page = PageController.from_session(session)
 
     try:
         retriever = JobRetriever(page)
@@ -137,7 +138,7 @@ def main() -> None:
             dry_run=not args.live,
         )
 
-        orch.run_once()
+        orch.run_once(limit=args.limit)
     finally:
         page.close()
 

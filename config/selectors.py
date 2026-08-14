@@ -12,6 +12,7 @@ SEARCH_URL = "https://www.zhipin.com/web/geek/job"
 SELECTORS = {
     # 岗位列表卡片
     "job_card": ".job-card-wrapper",
+    "job_link": "a",
     "job_title": ".job-name",
     "job_salary": ".salary",
     "job_company": ".company-name",

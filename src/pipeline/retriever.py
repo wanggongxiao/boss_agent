@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+from urllib.parse import urljoin
+
 from loguru import logger
 
 from config.selectors import SEARCH_URL, SELECTORS
@@ -36,6 +38,8 @@ class JobRetriever:
         cards = self._page.elements(SELECTORS["job_card"])
 
         for card in cards:
+            detail_href = self._page.child_attribute(card, SELECTORS["job_link"], "href")
+            detail_href = detail_href or self._page.element_attribute(card, "href")
             job = Job(
                 title=self._page.child_text(card, SELECTORS["job_title"]),
                 company=self._page.child_text(card, SELECTORS["job_company"]),
@@ -43,6 +47,7 @@ class JobRetriever:
                 salary=self._page.child_text(card, SELECTORS["job_salary"]),
                 platform_job_id=self._page.element_attribute(card, "data-jobid") or "",
                 hr_id=self._page.element_attribute(card, "data-hrid") or "",
+                detail_url=urljoin(SEARCH_URL, detail_href) if detail_href else "",
             )
             if job.title or job.company:
                 jobs.append(job)

@@ -20,6 +20,9 @@ class State(Enum):
     GENERATING_INTRO = auto()
     SENDING = auto()
     WAITING_REPLY = auto()
+    SKIPPED = auto()
+    BLOCKED = auto()
+    COMPLETED = auto()
     PAUSED = auto()
     STOPPED = auto()
     ERROR = auto()
@@ -31,14 +34,37 @@ _TRANSITIONS: dict[State, set[State]] = {
     State.RETRIEVING: {State.PARSING_JD, State.IDLE, State.PAUSED, State.ERROR},
     State.PARSING_JD: {State.COARSE_MATCHING, State.PAUSED, State.ERROR},
     State.COARSE_MATCHING: {State.FINE_MATCHING, State.DECISION_READY, State.ERROR},
-    State.FINE_MATCHING: {State.DECISION_READY, State.GENERATING_INTRO, State.PAUSED, State.ERROR},
-    State.DECISION_READY: {State.GENERATING_INTRO, State.SENDING, State.IDLE, State.STOPPED, State.PAUSED},
+    State.FINE_MATCHING: {
+        State.DECISION_READY,
+        State.GENERATING_INTRO,
+        State.SKIPPED,
+        State.PAUSED,
+        State.ERROR,
+    },
+    State.DECISION_READY: {
+        State.GENERATING_INTRO,
+        State.SENDING,
+        State.SKIPPED,
+        State.IDLE,
+        State.STOPPED,
+        State.PAUSED,
+    },
     State.GENERATING_INTRO: {State.DECISION_READY, State.SENDING, State.PAUSED, State.ERROR},
-    State.SENDING: {State.WAITING_REPLY, State.IDLE, State.PAUSED, State.ERROR},
+    State.SENDING: {
+        State.WAITING_REPLY,
+        State.BLOCKED,
+        State.COMPLETED,
+        State.IDLE,
+        State.PAUSED,
+        State.ERROR,
+    },
     State.WAITING_REPLY: {State.PARSING_JD, State.IDLE, State.STOPPED, State.PAUSED},
     State.PAUSED: {State.IDLE, State.RETRIEVING, State.STOPPED, State.ERROR},  # 人工恢复后回到安全点
     State.STOPPED: set(),
     State.ERROR: {State.IDLE, State.STOPPED},
+    State.SKIPPED: set(),
+    State.BLOCKED: set(),
+    State.COMPLETED: set(),
 }
 
 

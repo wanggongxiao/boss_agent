@@ -50,11 +50,14 @@ class AgentOrchestration:
         self._dry_run = dry_run
         self._run_sm = StateMachine()
 
-    def run_once(self) -> None:
+    def run_once(self, limit: int = 0) -> None:
         """执行一轮最小闭环。"""
         self._run_sm.transition(State.RETRIEVING)
         jobs = self._retriever.retrieve()
         logger.info("本轮共检索到 {} 个岗位", len(jobs))
+        if limit > 0:
+            jobs = jobs[:limit]
+            logger.info("按 limit={} 处理 {} 个岗位", limit, len(jobs))
 
         for job in jobs:
             # 每个岗位独立状态机，从 IDLE 走完整流程
@@ -72,14 +75,21 @@ class AgentOrchestration:
         evaluation = self._matcher.evaluate(job)
 
         sm.transition(State.FINE_MATCHING)
-        intro = self._generate_intro(job, evaluation.custom_intro if evaluation else None, sm)
+        if evaluation is None or not evaluation.should_apply:
+            sm.transition(State.SKIPPED)
+            logger.info("匹配评估不建议沟通，跳过：{} @ {}", job.title, job.company)
+            return
+
+        intro = self._generate_intro(job, evaluation.custom_intro, sm)
 
         sm.transition(State.DECISION_READY)
         if intro is None:
+            sm.transition(State.SKIPPED)
             logger.info("跳过（无建议）：{} @ {}", job.title, job.company)
             return
 
         if not self._human_loop.confirm_send(job.title, intro):
+            sm.transition(State.SKIPPED)
             logger.info("人工跳过：{} @ {}", job.title, job.company)
             return
 
@@ -87,6 +97,7 @@ class AgentOrchestration:
         target_key = f"{job.company}|{job.hr_id}"
         allowed, reason = self._guard.allow_send(target_key)
         if not allowed:
+            sm.transition(State.BLOCKED)
             logger.warning("guard 拦截发送：{}", reason)
             return
 
@@ -95,6 +106,7 @@ class AgentOrchestration:
         if self._dry_run:
             # dry-run 未真实发送，不属于失败，不计入 guard 统计
             logger.info("[dry-run] 未真实发送，不计入熔断统计")
+            sm.transition(State.COMPLETED)
             return
 
         self._guard.record_send(target_key, success)

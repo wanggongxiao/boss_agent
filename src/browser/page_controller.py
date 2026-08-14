@@ -86,6 +86,18 @@ class PageController:
             return ""
         return child.text
 
+    def child_attribute(self, element, locator: str, name: str, by: str = "css") -> str:
+        """读取元素内部子元素的属性，缺失时返回空字符串。"""
+        if by == "css":
+            child = element.ele(locator)
+        elif by == "xpath":
+            child = element.ele(f"xpath:{locator}")
+        else:
+            raise ValueError(f"不支持的定位方式: {by}")
+        if child is None:
+            return ""
+        return self.element_attribute(child, name)
+
     def element_attribute(self, element, name: str) -> str:
         """读取元素属性值，缺失返回空字符串。"""
         try:
