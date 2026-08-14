@@ -32,14 +32,25 @@ class Communicator:
             return False
 
         try:
+            initial_text = self._page.text(SELECTORS["chat_button"])
+            if "继续沟通" in initial_text:
+                logger.info("该岗位已存在会话，不重复点击沟通入口")
+                return True
+
             previous_url = self._page.url
             self._page.click(SELECTORS["chat_button"])
             self._page.wait_for_url_change(previous_url, timeout_s=12.0)
-            if "/web/geek/chat" not in self._page.url:
-                logger.error("点击立即沟通后未进入聊天页，当前 URL={}", self._page.url)
-                return False
-            logger.info("已发起沟通；BOSS 已发送账号预设招呼语，自定义建议话术未追加")
-            return True
+            if "/web/geek/chat" in self._page.url:
+                logger.info("已发起沟通并进入聊天页；自定义建议话术未追加")
+                return True
+
+            current_text = self._page.text(SELECTORS["chat_button"])
+            if "继续沟通" in current_text:
+                logger.info("已发起沟通；按钮已变为继续沟通，自定义建议话术未追加")
+                return True
+
+            logger.error("点击立即沟通后未确认会话建立，当前 URL={}", self._page.url)
+            return False
         except Exception as exc:  # pragma: no cover - 选择器需按页面校准
             logger.error("发送开场话术失败：{}", exc)
             return False
